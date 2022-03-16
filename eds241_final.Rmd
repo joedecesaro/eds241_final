@@ -1,0 +1,103 @@
+---
+title: 'EDS241: Final'
+author: "Joe DeCesaro"
+date: '`r format(Sys.time(), "%m/%d/%Y")`'
+output:
+  pdf_document:
+    toc: false
+    number_sections: yes
+header-includes:
+- \setlength{\parindent}{1em}
+- \usepackage{float}
+---
+
+``` {r setup, echo=FALSE, message=FALSE, warning = FALSE}
+# set default chunk options
+knitr::opts_chunk$set(fig.width = 4, fig.height = 3, echo = TRUE, message = FALSE, warning = FALSE)
+
+# load packages
+packages = c("stargazer", "here", "tidyverse", "janitor", 
+           "cowplot", "tinytex", "datasets", "estimatr", "tibble", "car", 
+           "readxl", "huxtable", "AER", "knitr")
+
+for (i in packages) {
+  if (require(i, character.only = TRUE) == FALSE) {
+    install.packages(i,repos = 'http://cran.us.r-project.org')
+  }
+  else {
+    require(i, character.only = TRUE)
+  }
+}
+
+options(scipen = 5) # not scientific notation
+```
+
+# Take Home Final
+
+\noindent The question for this take-home final exam asks you to examine the impact of the opening of a garbage incinerator on housing values in North Andover, MA. The data for the exercise are a subset of the data in the paper: K.A. Kiel and K.T. McClain (1995): “House Prices During Siting Decision Stages: The Case of an Incinerator from Rumor Through Operation,” Journal of Environmental Economics and Management 28, 241-255.
+
+## Background:
+\noindent The construction of a new garbage incinerator in North Andover in the early 1980s was controversial due to the increases in ambient pollution that it would create. Rumors of the incinerator began after 1978. The construction started in 1981, and the incinerator began operating in 1985. In Economics, land market theory suggests that local amenities are capitalized in housing values, and predicts that the prices of houses located near the incinerator would fall compared to the price of houses located further away from the incinerator. By 1981, you can assume that all market participants had full information on the upcoming garbage incinerator, so that housing values had capitalized the upcoming arrival of the incinerator.
+
+## Data:
+\noindent The authors of the paper collected data on prices of houses that sold in 1978 (before the upcoming construction of the incinerator was public knowledge) and in 1981 (after the construction had started). The key variables for the analysis are: rprice (inflation-adjusted sales price of house), nearinc (=1 if house located near the incinerator, =0 otherwise), age (age of the house), land (square footage of the lot), area (square footage of the house), rooms (number of rooms in the house), and a year indicator (1978 or 1981). These variables are contained in the CSV file KM_EDS241.csv.
+
+### Read in the data
+```{r}
+house_data <-read.csv(here("KM.csv"))
+```
+
+## (a) Using the data for 1981, estimate a simple OLS regression of real house values on the indicator for being located near the incinerator in 1981. What is the house value “penalty” for houses located near the incinerator? Does this estimated coefficient correspond to the ‘causal’ effect of the incinerator (and the negative amenities that come with it) on housing values? Explain why or why not.
+
+```{r}
+house_data_1981 <- house_data %>% 
+  filter(year == 1981)
+
+model1 <- lm_robust(rprice ~ nearinc,
+                    data = house_data_1981)
+summary(model1)
+```
+
+The house "penalty" for houses near the incinerator is an average decrease in value of `r model1$coefficients[[2]]` compared to houses not near the incinerator. The estimated coefficient corresponds with the 'causal' effect of the incinerator as the p-value deems it a statistically significant difference. However, the incinerator could have been placed in an area that has lower housing prices generally so this could be omitted variables bias. 
+
+## (b) Using the data for 1978, provide some evidence the location choice of the incinerator was not “random”, but rather selected on the basis of house values and characteristics. [Hint: in the 1978 sample, are house values and characteristics balanced by nearinc status?]
+```{r}
+house_data_1978 <- house_data %>% 
+  filter(year == 1978)
+
+house_data_1978_naerinc <- house_data %>% 
+  filter(year == 1978) %>% 
+  group_by(nearinc) %>% 
+  summarise(age_mean = mean(age),
+            rooms_mean = mean(rooms),
+            area_mean = mean(area),
+            land_mean = mean(land),
+            rprice_mean = mean(rprice))
+
+# kable(house_data_1978_naerinc)
+```
+
+It appears that, based on the housing information from 1978, the incinerator was placed near housing that, on average, were older, had smaller lots, and were worth less than houses further away from the incinerator.
+
+## (c) Based on the observed differences in (b), explain why the estimate in (a) is likely to be biased downward (i.e., overstate the negative effect of the incinerator on housing values).
+
+The difference in housing prices near the incinerator in 1982 could be from the fact that they are older homes, have smaller lots, and were on average worth less than those homes further away from the incinerator. The affect on price we are seeing in a is likely overstated from omitting these other variables from the regression and should be controlled for.
+
+## (d) Use a difference-in-differences (DD) estimator to estimate the causal effect of the incinerator on housing values without controlling for house and lot characteristics. Interpret the magnitude and sign of the estimated DD coefficient.
+
+```{r}
+
+```
+
+
+## (e) Report the 95% confidence interval for the estimate of the causal effect on the incinerator in (d).
+
+## (f) How does your answer in (d) changes when you control for house and lot characteristics? Test the hypothesis that the coefficients on the house and lot characteristics are all jointly equal to 0.
+
+## (g) Using the results from the DD regression in (f), calculate by how much did real housing values change on average between 1978 and 1981.
+
+## (h) Explain (in words) what is the key assumption underlying the causal interpretation of the DD estimator in the context of the incinerator construction in North Andover.
+
+
+
+
