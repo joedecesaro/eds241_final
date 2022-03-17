@@ -58,39 +58,56 @@ model1 <- lm_robust(rprice ~ nearinc,
 summary(model1)
 ```
 
-The house "penalty" for houses near the incinerator is an average decrease in value of `r model1$coefficients[[2]]` compared to houses not near the incinerator. The estimated coefficient corresponds with the 'causal' effect of the incinerator as the p-value deems it a statistically significant difference. However, the incinerator could have been placed in an area that has lower housing prices generally so this could be omitted variables bias. 
+The house "penalty" for houses near the incinerator is an average decrease in value of `r model1$coefficients[[2]]` compared to houses not near the incinerator. The estimated coefficient corresponds with the 'causal' effect of the incinerator as the p-value deems it a statistically significant difference. However, the incinerator could have been placed in an area that has lower housing prices generally so this could be omitted variables bias. This is explored in the next question.
 
 ## (b) Using the data for 1978, provide some evidence the location choice of the incinerator was not “random”, but rather selected on the basis of house values and characteristics. [Hint: in the 1978 sample, are house values and characteristics balanced by nearinc status?]
 ```{r}
 house_data_1978 <- house_data %>% 
   filter(year == 1978)
 
-house_data_1978_naerinc <- house_data %>% 
-  filter(year == 1978) %>% 
-  group_by(nearinc) %>% 
-  summarise(age_mean = mean(age),
-            rooms_mean = mean(rooms),
-            area_mean = mean(area),
-            land_mean = mean(land),
-            rprice_mean = mean(rprice))
+model2 <-  lm_robust(formula = rprice ~ nearinc,
+                     data = house_data_1978)
+
+model2_sum <- summary(model2)
+model2_sum
+# house_data_1978_naerinc <- house_data %>% 
+#   filter(year == 1978) %>% 
+#   group_by(nearinc) %>% 
+#   summarise(age_mean = mean(age),
+#             rooms_mean = mean(rooms),
+#             area_mean = mean(area),
+#             land_mean = mean(land),
+#             rprice_mean = mean(rprice))
 
 # kable(house_data_1978_naerinc)
 ```
 
-It appears that, based on the housing information from 1978, the incinerator was placed near housing that, on average, were older, had smaller lots, and were worth less than houses further away from the incinerator.
+Based on the housing information from 1978, the incinerator was placed near houses that, on average, were sold for 18,000 adjusted dollars less than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.01 level.
 
 ## (c) Based on the observed differences in (b), explain why the estimate in (a) is likely to be biased downward (i.e., overstate the negative effect of the incinerator on housing values).
 
-The difference in housing prices near the incinerator in 1982 could be from the fact that they are older homes, have smaller lots, and were on average worth less than those homes further away from the incinerator. The affect on price we are seeing in a is likely overstated from omitting these other variables from the regression and should be controlled for.
+The difference in housing prices near the incinerator in 1982 could be from the fact that they were on average worth less than those homes further away from the incinerator. The affect on price we are seeing in a is likely overstated from omitting this variable and possibly others from the regression and they should be controlled for.
 
 ## (d) Use a difference-in-differences (DD) estimator to estimate the causal effect of the incinerator on housing values without controlling for house and lot characteristics. Interpret the magnitude and sign of the estimated DD coefficient.
 
 ```{r}
+ house_data <-  house_data %>% 
+   mutate(treatment_dummy = case_when(year == 1978 ~ 0,
+                                      year == 1981 ~ 1))
 
+model3 <- lm_robust(formula = rprice ~ treatment_dummy + nearinc + treatment_dummy:nearinc,
+                    data = house_data)
+
+model3_table <- tidy(model3) %>%
+  select(term, estimate, std.error, p.value, conf.low, conf.high)
+
+summary(model3)
 ```
 
+The estimated DD coefficient is a sales price difference of 11,864 less for houses that were sold in 1981 and are near the incinerator.
 
 ## (e) Report the 95% confidence interval for the estimate of the causal effect on the incinerator in (d).
+The 95% confidence interval for the estimate of the causal effect on the incinerator is[`r round(model3_table$conf.low[4], 2)`, `r round(model3_table$conf.high[4], 2)`].
 
 ## (f) How does your answer in (d) changes when you control for house and lot characteristics? Test the hypothesis that the coefficients on the house and lot characteristics are all jointly equal to 0.
 
