@@ -67,7 +67,7 @@ model1 <- lm_robust(rprice ~ nearinc, # effect of being near incinerator on pric
 summary(model1)
 ```
 
-\noindent The house "penalty" for houses near the incinerator is an average decrease in value of `r model1$coefficients[[2]]` compared to houses not near the incinerator. The estimated coefficient corresponds with the 'causal' effect of the incinerator as the p-value deems it a statistically significant difference. However, the incinerator could have been placed in an area that has lower housing prices generally so this could be omitted variables bias. This is explored in the next question.
+\noindent The house "penalty" for houses near the incinerator is an average decrease in value of `r -1*round(model1$coefficients[[2]], 2)` dollars compared to houses not near the incinerator. The estimated coefficient corresponds with the 'causal' effect of the incinerator as the p-value deems it a statistically significant difference at the 0.001 level. However, the incinerator could have been placed in an area that already had lower housing prices generally so this could be omitted variables bias. This is explored in the next question.
 
 ## (b) Using the data for 1978, provide some evidence the location choice of the incinerator was not “random”, but rather selected on the basis of house values and characteristics. [Hint: in the 1978 sample, are house values and characteristics balanced by nearinc status?]
 ```{r}
@@ -75,57 +75,65 @@ summary(model1)
 house_data_1978 <- house_data %>% 
   filter(year == 1978)
 
-model2.1 <-  lm_robust(formula = rprice ~ nearinc, # house prices that would be near incinerator in 1978
+# house prices that would be near/away incinerator in 1978
+model2.1 <-  lm_robust(formula = rprice ~ nearinc, 
                        data = house_data_1978)
 
 model2.1_sum <- summary(model2.1)
 model2.1_sum
 ```
 
-\noindent Based on the housing information from 1978, the incinerator was placed near houses that, on average, were sold for 18,000 adjusted dollars less than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2.1_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.01 level. This indicates that placement of the incinerator was not random but near homes that were of less value already, lets look at another variable to be sure.
+\noindent Based on the housing information from 1978, the incinerator was placed near houses that, on average, were sold for `r -1*round(model2.1$coefficients[[2]], 2)` adjusted dollars less than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2.1_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.01 level. This indicates that placement of the incinerator was not random but near homes that were of less value already, lets look at another variable to be sure.
 
 ```{r}
-# what about lot size?
-model2.2 <-  lm_robust(formula = land ~ nearinc, # did houses near the incinerator have more, less, or the same land?
+# did houses near the incinerator have more, less, or the same land?
+model2.2 <-  lm_robust(formula = land ~ nearinc, 
                        data = house_data_1978)
 
 model2.2_sum <- summary(model2.2)
 model2.2_sum
 ```
 
-\noindent Based on the housing information from 1978, the incinerator was placed near houses that, on average, had about 30,000 less of lot square footage than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2.2_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.001 level. This confirms that placement of the incinerator was not random.
+\noindent Based on the housing information from 1978, the incinerator was placed near houses that, on average, had `r -1*round(model2.2$coefficients[[2]], 2)` less of lot square footage than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2.2_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.001 level. This confirms that placement of the incinerator was not random.
 
 ## (c) Based on the observed differences in (b), explain why the estimate in (a) is likely to be biased downward (i.e., overstate the negative effect of the incinerator on housing values).
 
-\noindent The difference in housing prices near the incinerator in 1982 could be from the fact that they were on average worth less than those homes further away from the incinerator. The affect on price we are seeing in a is likely overstated from omitting this variable and possibly others from the regression and they should be controlled for.
+\noindent The difference in housing prices near the incinerator in 1982 is likely affected by the fact that they were on average worth less and had smaller lot sizes than those homes further away from the incinerator. The affect on price we are seeing in (a) is likely overstated from omitting variables from the regression and they should be controlled for.
 
 ## (d) Use a difference-in-differences (DD) estimator to estimate the causal effect of the incinerator on housing values without controlling for house and lot characteristics. Interpret the magnitude and sign of the estimated DD coefficient.
 
 ```{r}
  house_data <-  house_data %>% 
-  mutate(post1981 = case_when(year == 1978 ~ 0, # make binary variable for years
+  # make binary variable for years
+  mutate(post1981 = case_when(year == 1978 ~ 0,
                                       year == 1981 ~ 1),
-         treatment_dummy = nearinc*post1981) # make treatment dummy binary variable for houses in 1981 that are near the inc
+         # make treatment dummy binary variable for houses in 1981 that are near the inc
+         treatment_dummy = nearinc*post1981) 
 
+# make the DD model for different binary possibilities
 model3 <- lm_robust(formula = rprice ~ post1981 + nearinc + treatment_dummy,
                     data = house_data)
 
-model3_table <- tidy(model3) %>%  #to be able to get the confidence intervals by calling them
+# to be able to get the confidence intervals by calling them
+model3_table <- tidy(model3) %>%  
   select(term, estimate, std.error, p.value, conf.low, conf.high)
 
-summary(model3)
+model3_sum <- summary(model3)
+model3_sum
 ```
 
-The estimated DD coefficient is a sales price difference of 11,864 less for houses that were sold in 1981 and are near the incinerator.
+\noindent The estimated DD causal effect of the incinerator on housing values without controlling for other characteristics is an adjusted sales price difference of `r round(model3$coefficients[[4]], 2)`. This value represents the difference between adjusted sales price of houses compared to those that are not near the incinerator and sold in 1981 (control) AND the difference compared to houses sold in 1978 and would be near the incinerator (treated pre-policy intervention). The negative sign means that the houses in the area that were near the incinerator (treated) had a lower price sales than those not treated and sold in 1978. It should be noted that the p-value is `r round(model3_sum$coefficients[4,4], 3)` and therefore not significant.
 
 ## (e) Report the 95% confidence interval for the estimate of the causal effect on the incinerator in (d).
-The 95% confidence interval for the estimate of the causal effect on the incinerator is[`r round(model3_table$conf.low[4], 2)`, `r round(model3_table$conf.high[4], 2)`].
+The 95% confidence interval for the estimate of the causal effect on the incinerator is[`r round(model3_table$conf.low[4], 2)`, `r round(model3_table$conf.high[4], 2)`]. The 95% confidence interval crosses 0 so the DD estimate is not statistically different from zero.
 
 ## (f) How does your answer in (d) changes when you control for house and lot characteristics? Test the hypothesis that the coefficients on the house and lot characteristics are all jointly equal to 0.
 
 ```{r}
+# make the DD model for different binary possibilities and control for housing characteristics
 model4 <- lm_robust(formula = rprice ~ post1981 + nearinc + treatment_dummy + 
-                    age + rooms + area + land, # control variables
+                      # control variables
+                      age + rooms + area + land, 
                     data = house_data)
 
 model4_table <- tidy(model4) %>%
@@ -134,14 +142,21 @@ model4_table <- tidy(model4) %>%
 summary(model4)
 ```
 
+\noindent The estimated DD causal effect of the incinerator on housing values while controlling for other characteristics is an adjusted sales price difference of `r round(model4$coefficients[[4]], 2)`. The negative sign means that the houses in the area that were near the incinerator (treated) had a lower price sales than those not treated and sold in 1978. It should be noted that the confidence interval does cross 0 so the DD estimate is not statistically different from zero.
+
 ```{r}
 # linear hypothesis test
-hyp_test <- linearHypothesis(model4, c("age = 0", "rooms = 0", "area = 0", "land = 0"))
+hyp_test <- linearHypothesis(model4, 
+                             c("age = 0", "rooms = 0", "area = 0", "land = 0"),
+                             white.adjust = "hc2")
 hyp_test
 ```
 
+\noindent The proper F-statistic is `r round(hyp_test$Chisq[[2]], 0)` which is greater than 10, therefore these are not a weak instrument. The p-value of the linear hypothesis test is statistically significant we can reject the null hypothesis that the coefficients on the housing characteristics are all jointly equal to 0.
 
 ## (g) Using the results from the DD regression in (f), calculate by how much did real housing values change on average between 1978 and 1981. (for the control group per Slack)
+
+\noindent The real housing values change on average between 1978 and 1981 for the control group when controlling for other housing characteristics is `r round(model4$coefficients[[2]], 2)`.
 
 ## (h) Explain (in words) what is the key assumption underlying the causal interpretation of the DD estimator in the context of the incinerator construction in North Andover.
 
