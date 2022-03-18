@@ -51,10 +51,10 @@ house_data <-read.csv(here("KM.csv"))
 
 ```{r}
 house_data_1981 <- house_data %>% 
-  filter(year == 1981)
+  filter(year == 1981) # filter to just get 1981
 
-model1 <- lm_robust(rprice ~ nearinc,
-                    data = house_data_1981)
+model1 <- lm_robust(rprice ~ nearinc, # effect of being near incinerator on prices in 1981
+                    data = house_data_1981) 
 summary(model1)
 ```
 
@@ -62,27 +62,28 @@ The house "penalty" for houses near the incinerator is an average decrease in va
 
 ## (b) Using the data for 1978, provide some evidence the location choice of the incinerator was not “random”, but rather selected on the basis of house values and characteristics. [Hint: in the 1978 sample, are house values and characteristics balanced by nearinc status?]
 ```{r}
+# lets check if the prices were lower in these areas already
 house_data_1978 <- house_data %>% 
   filter(year == 1978)
 
-model2 <-  lm_robust(formula = rprice ~ nearinc,
-                     data = house_data_1978)
+model2.1 <-  lm_robust(formula = rprice ~ nearinc, # house prices that would be near incinerator in 1978
+                       data = house_data_1978)
 
-model2_sum <- summary(model2)
-model2_sum
-# house_data_1978_naerinc <- house_data %>% 
-#   filter(year == 1978) %>% 
-#   group_by(nearinc) %>% 
-#   summarise(age_mean = mean(age),
-#             rooms_mean = mean(rooms),
-#             area_mean = mean(area),
-#             land_mean = mean(land),
-#             rprice_mean = mean(rprice))
-
-# kable(house_data_1978_naerinc)
+model2.1_sum <- summary(model2.1)
+model2.1_sum
 ```
 
-Based on the housing information from 1978, the incinerator was placed near houses that, on average, were sold for 18,000 adjusted dollars less than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.01 level.
+Based on the housing information from 1978, the incinerator was placed near houses that, on average, were sold for 18,000 adjusted dollars less than houses not near the incinerator placement. The p-value for the difference in houses near the incinerator is `r round(model2.1_sum$coefficients[2,4], 5)` and therefore statistically significant at the 0.01 level.
+
+```{r}
+# what about land?
+model2.2 <-  lm_robust(formula = land ~ nearinc, # did houses near the incinerator have more, less, or the same land?
+                       data = house_data_1978)
+
+model2.2_sum <- summary(model2.2)
+model2.2_sum
+```
+
 
 ## (c) Based on the observed differences in (b), explain why the estimate in (a) is likely to be biased downward (i.e., overstate the negative effect of the incinerator on housing values).
 
@@ -92,13 +93,14 @@ The difference in housing prices near the incinerator in 1982 could be from the 
 
 ```{r}
  house_data <-  house_data %>% 
-   mutate(treatment_dummy = case_when(year == 1978 ~ 0,
-                                      year == 1981 ~ 1))
+  mutate(post1981 = case_when(year == 1978 ~ 0, # make binary variable for years
+                                      year == 1981 ~ 1),
+         treatment_dummy = nearinc*post1981) # make treatment dummy binary variable for houses in 1981 that are near the inc
 
-model3 <- lm_robust(formula = rprice ~ treatment_dummy + nearinc + treatment_dummy:nearinc,
+model3 <- lm_robust(formula = rprice ~ post1981 + nearinc + treatment_dummy,
                     data = house_data)
 
-model3_table <- tidy(model3) %>%
+model3_table <- tidy(model3) %>%  #to be able to get the confidence intervals by calling them
   select(term, estimate, std.error, p.value, conf.low, conf.high)
 
 summary(model3)
@@ -111,7 +113,25 @@ The 95% confidence interval for the estimate of the causal effect on the inciner
 
 ## (f) How does your answer in (d) changes when you control for house and lot characteristics? Test the hypothesis that the coefficients on the house and lot characteristics are all jointly equal to 0.
 
-## (g) Using the results from the DD regression in (f), calculate by how much did real housing values change on average between 1978 and 1981.
+```{r}
+model4 <- lm_robust(formula = rprice ~ post1981 + nearinc + treatment_dummy + 
+                    age + rooms + area + land, # control variables
+                    data = house_data)
+
+model4_table <- tidy(model4) %>%
+  select(term, estimate, std.error, p.value, conf.low, conf.high)
+
+summary(model4)
+```
+
+```{r}
+# linear hypothesis test
+hyp_test <- linearHypothesis(model4, c("age = 0", "rooms = 0", "area = 0", "land = 0"))
+hyp_test
+```
+
+
+## (g) Using the results from the DD regression in (f), calculate by how much did real housing values change on average between 1978 and 1981. (for the control group per Slack)
 
 ## (h) Explain (in words) what is the key assumption underlying the causal interpretation of the DD estimator in the context of the incinerator construction in North Andover.
 
